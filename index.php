@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // Session must start before any output.
 session_start();
 
