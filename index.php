@@ -1,48 +1,77 @@
 <?php
-require 'config/Database.php';
-require 'models/Estudiante.php';
-require 'controllers/EstudianteController.php';
+// Session must start before any output.
+session_start();
 
+// Manual requires (no Composer). Load order: interfaces → config → model → helper → controller.
+require_once 'interfaces/CrudRepositoryInterface.php';
+require_once 'interfaces/ValidatableInterface.php';
+require_once 'config/Database.php';
+require_once 'models/Estudiante.php';
+require_once 'helpers/Validator.php';
+require_once 'controllers/EstudianteController.php';
+
+use Config\Database;
+use Models\Estudiante;
+use Helpers\Validator;
 use Controllers\EstudianteController;
 
-$controller = new EstudianteController();
+// =============================================================================
+// Composition Root — the ONLY place where concrete classes are instantiated.
+// SOLID DIP: EstudianteController receives interfaces, not concrete classes.
+// =============================================================================
+$db         = (new Database())->getConnection();
+$repository = new Estudiante($db);
+$validator  = new Validator();
+$controller = new EstudianteController($repository, $validator);
 
-/* The `action` variable is used to determine which operation to perform in the application based on
-the user's input. It is used to switch between different cases in the switch statement to handle
-actions such as creating a new record, editing an existing record, deleting a record, or displaying
-a list of records. The value of `action` is retrieved from either the POST or GET request
-parameters, and the corresponding action is executed based on the value of `action`. */
-$action = isset($_POST['action']) ? $_POST['action'] : (isset($_GET['action']) ? $_GET['action'] : '');
+// Single entry point: read action from POST first, then GET.
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-switch($action) {
-    case 'create':
-        if($_SERVER['REQUEST_METHOD'] == 'POST'){
-            $controller->create($_POST['nombre'], $_POST['edad'],  $_POST['sexo'], $_POST['carrera']);
-            header('Location: index.php');
-        }else{
+try {
+    switch ($action) {
+
+        case 'create':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $result = $controller->create($_POST);
+                $_SESSION['flash'] = $result['success']
+                    ? ['type' => 'success', 'msg' => 'Student created successfully.']
+                    : ['type' => 'danger',  'msg' => implode(' ', $result['errors'])];
+                header('Location: index.php');
+                exit;
+            }
             include 'views/estudiante_form.php';
-        }
-        break;
+            break;
 
-    case 'edit':
-        if($_SERVER['REQUEST_METHOD'] == 'POST'){
-            $controller->update($_POST['id'], $_POST['nombre'], $_POST['edad'], $_POST['sexo'], $_POST['carrera']);
-            header('Location: index.php');
-        } else {
-            $id = $_GET['id'] ?? 0;
+        case 'edit':
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $id     = (int) ($_POST['id'] ?? 0);
+                $result = $controller->update($id, $_POST);
+                $_SESSION['flash'] = $result['success']
+                    ? ['type' => 'success', 'msg' => 'Student updated successfully.']
+                    : ['type' => 'danger',  'msg' => implode(' ', $result['errors'])];
+                header('Location: index.php');
+                exit;
+            }
+            $id         = (int) ($_GET['id'] ?? 0);
             $estudiante = $controller->readOne($id);
             include 'views/estudiante_form.php';
-        }
-        break;
+            break;
 
-    case 'delete' :
-        $id = $_GET['id'] ?? 0;
-        $controller->delete($id);
-        header('Location: index.php');
-        break;
-    
-    default :
-        $estudiante = $controller->read()->fetchAll(PDO::FETCH_ASSOC);
-        include 'views/estudiante_list.php';
-        break;
+        case 'delete':
+            $id = (int) ($_GET['id'] ?? 0);
+            $controller->delete($id);
+            $_SESSION['flash'] = ['type' => 'success', 'msg' => 'Student deleted successfully.'];
+            header('Location: index.php');
+            exit;
+
+        default:
+            $estudiantes = $controller->read();
+            include 'views/estudiante_list.php';
+            break;
+    }
+} catch (\Throwable $e) {
+    // In production: log $e instead of displaying it.
+    $_SESSION['flash'] = ['type' => 'danger', 'msg' => 'Unexpected error: ' . $e->getMessage()];
+    header('Location: index.php');
+    exit;
 }

@@ -1,123 +1,82 @@
 <?php
-
 namespace Models;
 
 use PDO;
-use PDOException;
+use Interfaces\CrudRepositoryInterface;
 
-class Estudiante {
-    private $conexion;
-    private $table = 'estudiantes';
+// OOP: class implements CrudRepositoryInterface — fulfills the contract.
+// SOLID SRP: one responsibility — persist/retrieve Estudiante data.
+class Estudiante implements CrudRepositoryInterface
+{
+    // OOP Encapsulation: internal details hidden; only the interface is public.
+    private PDO    $conexion;
+    private string $table = 'estudiantes';
 
-    public $id;
-    public $nombre;
-    public $edad;
-    public $sexo;
-    public $carrera;
-
-    public function __construct($db){
+    // OOP Constructor injection: dependency (PDO) provided from outside.
+    // SOLID DIP: receives an abstraction (PDO), not a concrete Database class.
+    public function __construct(PDO $db)
+    {
         $this->conexion = $db;
-
     }
 
-    public function create(){
-        try{
-            $query = "INSERT INTO " . $this->table . " 
-            (nombre, edad, sexo, carrera) 
-            VALUES 
-            (:nombre, :edad, :sexo, :carrera)";
+    public function create(array $data): bool
+    {
+        $query = "INSERT INTO {$this->table} (nombre, edad, sexo, carrera)
+                  VALUES (:nombre, :edad, :sexo, :carrera)";
 
-            $stmt = $this->conexion->prepare($query);
+        $stmt = $this->conexion->prepare($query);
+        $stmt->bindValue(':nombre',  $data['nombre']);
+        $stmt->bindValue(':edad',    (int) $data['edad'], PDO::PARAM_INT);
+        $stmt->bindValue(':sexo',    $data['sexo']);
+        $stmt->bindValue(':carrera', $data['carrera']);
 
-            $stmt->bindParam(":nombre", $this->nombre);
-            $stmt->bindParam(":edad", $this->edad);
-            $stmt->bindParam(":sexo", $this->sexo);
-            $stmt->bindParam(":carrera", $this->carrera);
-
-            if($stmt->execute()){
-                return "Registro creado exitosamente";
-            }
-        } catch (PDOException $e) {
-            echo "Error al crear el registro: " . $e->getMessage();
-        }
-        
-        return false;
+        return $stmt->execute();
     }
 
-    public function read(){
-        try{
-            $query = "SELECT * FROM ".$this->table;
-
-            $stmt = $this->conexion->prepare($query);
-            $stmt->execute();
-            return $stmt;
-        } catch (PDOException $e){
-            echo "Error al leer los registros: " . $e->getMessage();
-        }
-        
-
-        
+    public function read(): array
+    {
+        $stmt = $this->conexion->prepare("SELECT * FROM {$this->table}");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function readOne(){
-        try{
-            $query = "SELECT * FROM " . $this->table . " WHERE id = :id";
+    public function readOne(int $id): ?object
+    {
+        $stmt = $this->conexion->prepare(
+            "SELECT * FROM {$this->table} WHERE id = :id"
+        );
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
 
-            $stmt = $this->conexion->prepare($query);
-            $stmt->bindParam(':id',$this->id, PDO::PARAM_INT);
-            $stmt->execute();
-
-            $row = $stmt->fetch(PDO::FETCH_OBJ);
-
-            if($row){
-                return $row;
-            }else {
-                throw new \Exception("Registro no encontrado");
-            }
-        } catch (PDOException $e) {
-            echo "Error al leer el registro: " . $e->getMessage();
-        }
-        
+        $row = $stmt->fetch(PDO::FETCH_OBJ);
+        return $row !== false ? $row : null;
     }
 
-    public function update(){
-        try{
-            $query = "UPDATE " . $this->table . " 
-            SET nombre = :nombre, 
-                edad = :edad, 
-                sexo = :sexo, 
-                carrera = :carrera 
-            WHERE id = :id";
+    public function update(int $id, array $data): bool
+    {
+        $query = "UPDATE {$this->table}
+                  SET nombre  = :nombre,
+                      edad    = :edad,
+                      sexo    = :sexo,
+                      carrera = :carrera
+                  WHERE id = :id";
 
-            $stmt = $this->conexion->prepare($query);
+        $stmt = $this->conexion->prepare($query);
+        $stmt->bindValue(':nombre',  $data['nombre']);
+        $stmt->bindValue(':edad',    (int) $data['edad'], PDO::PARAM_INT);
+        $stmt->bindValue(':sexo',    $data['sexo']);
+        $stmt->bindValue(':carrera', $data['carrera']);
+        $stmt->bindValue(':id',      $id, PDO::PARAM_INT);
 
-            $stmt->bindParam(':nombre', $this->nombre);
-            $stmt->bindParam(":edad", $this->edad);
-            $stmt->bindParam(":sexo", $this->sexo);
-            $stmt->bindParam(":carrera", $this->carrera);
-            $stmt->bindParam(':id', $this->id, PDO::PARAM_INT);
-
-            return $stmt->execute();
-        } catch (PDOException $e) {
-            echo "Error al actualizar el registro: ".$e->getMessage();
-        }
-        
+        return $stmt->execute();
     }
 
-    public function delete(){
-        try{
-            $query = "DELETE FROM ".$this->table." WHERE id = :id";
-
-            $stmt = $this->conexion->prepare($query);
-            $stmt->bindParam(":id", $this->id);
-
-            if($stmt->execute()){
-                return true;
-            }
-        } catch (PDOException $e){
-            echo "Error al eliminar el registro: ".$e->getMessage();
-        }
-        
-        return false;
+    public function delete(int $id): bool
+    {
+        $stmt = $this->conexion->prepare(
+            "DELETE FROM {$this->table} WHERE id = :id"
+        );
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        return $stmt->execute();
     }
 }

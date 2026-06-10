@@ -1,31 +1,44 @@
 <?php
-require_once('layouthead.php')
+// Reached only when JavaScript is disabled (modal can't open).
+// $estudiante is set by index.php when editing; null/absent when creating.
+$isEditing = isset($estudiante) && $estudiante !== null;
+require_once 'layouthead.php';
 ?>
 <body>
-<h1>Formulario de Estudiante</h1>
+<div class="container mt-4" style="max-width: 500px;">
+    <h2><?= $isEditing ? 'Edit Student' : 'New Student' ?></h2>
+
     <form action="index.php" method="post">
-        <input type="hidden" name="id" value="<?php echo $estudiante->id ?? ''; ?>">
-        <label for="nombre">Nombre del Estudiante:</label>
-        <input type="text" id="nombre" name="nombre" value="<?php echo $estudiante->nombre ?? ''; ?>" required><br>
+        <input type="hidden" name="id"     value="<?= $isEditing ? htmlspecialchars($estudiante->id) : '' ?>">
+        <input type="hidden" name="action" value="<?= $isEditing ? 'edit' : 'create' ?>">
 
-        <label for="email">Edad:</label>
-        <input type="number" id="edad" name="edad" value="<?php echo $estudiante->edad ?? ''; ?>" required><br>
+        <div class="mb-3">
+            <label for="nombre" class="form-label">Name</label>
+            <input type="text"   class="form-control" id="nombre"  name="nombre"
+                   value="<?= $isEditing ? htmlspecialchars($estudiante->nombre) : '' ?>" required>
+        </div>
+        <div class="mb-3">
+            <label for="edad" class="form-label">Age</label>
+            <input type="number" class="form-control" id="edad"    name="edad"
+                   value="<?= $isEditing ? htmlspecialchars($estudiante->edad) : '' ?>"
+                   required min="1" max="120">
+        </div>
+        <div class="mb-3">
+            <label for="sexo" class="form-label">Gender</label>
+            <input type="text"   class="form-control" id="sexo"    name="sexo"
+                   value="<?= $isEditing ? htmlspecialchars($estudiante->sexo) : '' ?>" required>
+        </div>
+        <div class="mb-3">
+            <label for="carrera" class="form-label">Career</label>
+            <input type="text"   class="form-control" id="carrera" name="carrera"
+                   value="<?= $isEditing ? htmlspecialchars($estudiante->carrera) : '' ?>" required>
+        </div>
 
-        <label for="email">Sexo:</label>
-        <input type="text" id="sexo" name="sexo" value="<?php echo $estudiante->sexo ?? ''; ?>" required><br>
-
-        <label for="email">Carrera:</label>
-        <input type="text" id="carrera" name="carrera" value="<?php echo $estudiante->carrera ?? ''; ?>" required><br>
-
-        <input type="hidden" name="action" value="<?php echo isset($estudiante) ? 'edit' : 'create'; ?>">
-        <input type="submit" value="<?php echo isset($estudiante) ? 'Actualizar' : 'Crear'; ?>">
-        
+        <button type="submit" class="btn btn-primary">
+            <?= $isEditing ? 'Update' : 'Create' ?>
+        </button>
+        <a href="index.php" class="btn btn-secondary">Back</a>
     </form>
-
-        
-    <a href="index.php">Volver a la lista</a>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+</div>
 </body>
-<?php
-require_once('layoutfoot.php');
-?>
+<?php require_once 'layoutfoot.php'; ?>
