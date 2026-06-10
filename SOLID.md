@@ -10,20 +10,42 @@
 | `Validator` | Validates an array of student data. |
 | `EstudianteController` | Reads HTTP input, delegates to validator + repository, returns a result. |
 
-Each class changes only if its own job changes (e.g. `Validator` changes when validation rules change, not when the DB schema changes).
+Each class changes only if its own job changes (e.g. `Estudiante` changes if the table schema changes; `Validator` changes only if the rule-running *mechanism* changes — adding new validation rules does **not** touch it, see OCP below).
 
 ---
 
 ## O — Open/Closed Principle
 > Open for extension, closed for modification.
 
-`EstudianteController` is closed — you never edit it to add a new validation rule or switch databases. You extend behaviour by swapping the injected `$validator` or `$repository` with a different implementation.
+`Validator` is a generic rule-runner. The actual validation rules are **data** (closures) injected through its constructor — `helpers/Validator.php` never needs to be edited again.
 
 ```php
-// index.php — swap Validator for a stricter one without touching the controller
-$validator  = new StrictValidator();   // new class, same interface
-$controller = new EstudianteController($repository, $validator);
+// helpers/Validator.php — closed for modification
+public function __construct(private array $rules) {}
+
+public function validate(array $data): bool {
+    foreach ($this->rules as $field => $config) {
+        $value = $data[$field] ?? '';
+        if (!($config['rule'])($value)) {
+            $this->errors[$field] = $config['message'];
+        }
+    }
+    return empty($this->errors);
+}
 ```
+
+```php
+// index.php — open for extension: add a field by adding a rule, no class edited
+$validator = new Validator([
+    'nombre' => ['rule' => fn($v) => strlen(trim($v)) >= 2, 'message' => '...'],
+    'email'  => [ // ← brand new field, zero changes to Validator.php
+        'rule'    => fn($v) => filter_var($v, FILTER_VALIDATE_EMAIL) !== false,
+        'message' => 'Invalid email address.',
+    ],
+]);
+```
+
+`EstudianteController` is also OCP: swapping `$repository` or `$validator` for a different implementation never requires editing the controller.
 
 ---
 
@@ -63,6 +85,6 @@ The concrete classes are instantiated only in `index.php` — the **Composition 
 // index.php — the only place that mentions concrete class names
 $db         = (new Database())->getConnection();
 $repository = new Estudiante($db);
-$validator  = new Validator();
+$validator  = new Validator([/* rules — see OCP section */]);
 $controller = new EstudianteController($repository, $validator);
 ```

@@ -18,10 +18,31 @@ use Controllers\EstudianteController;
 // =============================================================================
 // Composition Root — the ONLY place where concrete classes are instantiated.
 // SOLID DIP: EstudianteController receives interfaces, not concrete classes.
+// SOLID OCP: validation rules are DATA passed into Validator. To validate a
+// new field, add a rule below — helpers/Validator.php is never modified.
 // =============================================================================
 $db         = (new Database())->getConnection();
 $repository = new Estudiante($db);
-$validator  = new Validator();
+
+$validator = new Validator([
+    'nombre' => [
+        'rule'    => fn($v) => trim((string) $v) !== '' && strlen(trim((string) $v)) >= 2,
+        'message' => 'Name is required (min 2 characters).',
+    ],
+    'edad' => [
+        'rule'    => fn($v) => is_numeric($v) && (int) $v >= 1 && (int) $v <= 120,
+        'message' => 'Age must be a number between 1 and 120.',
+    ],
+    'sexo' => [
+        'rule'    => fn($v) => trim((string) $v) !== '',
+        'message' => 'Gender is required.',
+    ],
+    'carrera' => [
+        'rule'    => fn($v) => trim((string) $v) !== '' && strlen(trim((string) $v)) >= 2,
+        'message' => 'Career is required (min 2 characters).',
+    ],
+]);
+
 $controller = new EstudianteController($repository, $validator);
 
 // Single entry point: read action from POST first, then GET.
